@@ -51,20 +51,17 @@ class FiveBrosSplitFrames(FiveBrosRetrieverBase):
         )
         return frames
 
-    def extract_object_features(self, frames):          #trich xuat object features
-        """Trích xuất Object Features từ các frame bằng YOLOv12."""
+    def extract_object_features(self, frames):
         object_features = {}
         for i, frame in enumerate(frames):
-            # Chuyển frame thành hình ảnh tạm thời để gọi object_detection
             from PIL import Image
             import os
             import numpy as np
-            temp_path = f"D:\\AIC2025\\save\\keyframes\\frame_{i:04d}.webp"
+            temp_path = f"save\\keyframes\\frame_{i:04d}.webp"
             os.makedirs(os.path.dirname(temp_path), exist_ok=True)
             Image.fromarray((frame * 255).astype(np.uint8)).save(temp_path)
-            embeddings = object_detection(temp_path)
+            embeddings = self.feature_extractor.extract_features(temp_path)
             object_features[f"frame_{i:04d}"] = embeddings
-            print(f"Extracted objects from frame_{i:04d}: {embeddings}")
         return object_features
 
 
