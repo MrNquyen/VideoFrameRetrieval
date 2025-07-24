@@ -5,15 +5,13 @@ from utils.registry import registry
 from utils.flags import Flags
 from utils.utils import load_yml
 
-class FiveBrosRetriever:
+class FiveBrosRetrieverBase:
     def __init__(self, args):
         #~ Configuration
         self.args = args
         self.device = args.device
-    
         #~ Build
         self.build()
-
 
     #-- BUILD
     def build(self):
@@ -36,10 +34,28 @@ class FiveBrosRetriever:
         self.config.build_registry()
 
 
+# ================================TEST MODULE HERE=====================
+#~ Example split video frames
+from modules.frame_splitter import FrameSplitter
+class FiveBrosSplitFrames(FiveBrosRetrieverBase):
+    def __init__(self, args):
+        super().__init__(args)
+
+    def add_modules(self):
+        self.frame_splitter = FrameSplitter(interval=2)
+
+    def split_frames(self, video_path):
+        frames = self.frame_splitter.split_frames(
+            source=video_path
+        )
+        return frames
+
 
 if __name__=="__main__":
     flag = Flags()
     args = flag.get_parser()
 
-    #~ Our Retriever
-    fbros_sys = FiveBrosRetriever(args=args)
+    #~ Our splitter
+    video_path = "data/video.mp4"
+    fbros_splitter = FiveBrosSplitFrames(args=args)
+    frames = fbros_splitter.split_frames(video_path=video_path)
