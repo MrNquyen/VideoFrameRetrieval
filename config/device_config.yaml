@@ -15,5 +15,5 @@ yolo:
   conf: 0.5   # Ngưỡng confidence
 
 storage:
-  features_dir: "AIC2025\\save\\features"  # Thư mục lưu vector đặc trưng
+  features_dir: "save\\features"  # Thư mục lưu vector đặc trưng
   
