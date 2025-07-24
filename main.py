@@ -37,6 +37,7 @@ class FiveBrosRetrieverBase:
 # ================================TEST MODULE HERE=====================
 #~ Example split video frames
 from modules.frame_splitter import FrameSplitter
+from modules.object_detection import object_detection  # Thêm module mới
 class FiveBrosSplitFrames(FiveBrosRetrieverBase):
     def __init__(self, args):
         super().__init__(args)
@@ -50,6 +51,22 @@ class FiveBrosSplitFrames(FiveBrosRetrieverBase):
         )
         return frames
 
+    def extract_object_features(self, frames):          #trich xuat object features
+        """Trích xuất Object Features từ các frame bằng YOLOv12."""
+        object_features = {}
+        for i, frame in enumerate(frames):
+            # Chuyển frame thành hình ảnh tạm thời để gọi object_detection
+            from PIL import Image
+            import os
+            import numpy as np
+            temp_path = f"D:\\AIC2025\\save\\keyframes\\frame_{i:04d}.webp"
+            os.makedirs(os.path.dirname(temp_path), exist_ok=True)
+            Image.fromarray((frame * 255).astype(np.uint8)).save(temp_path)
+            embeddings = object_detection(temp_path)
+            object_features[f"frame_{i:04d}"] = embeddings
+            print(f"Extracted objects from frame_{i:04d}: {embeddings}")
+        return object_features
+
 
 if __name__=="__main__":
     flag = Flags()
@@ -59,3 +76,14 @@ if __name__=="__main__":
     video_path = "data/video.mp4"
     fbros_splitter = FiveBrosSplitFrames(args=args)
     frames = fbros_splitter.split_frames(video_path=video_path)
+
+    object_features = fbros_splitter.extract_object_features(frames=frames)
+
+
+
+
+
+
+
+
+
