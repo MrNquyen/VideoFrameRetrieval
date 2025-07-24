@@ -4,13 +4,15 @@ from PIL import Image
 import torch
 import numpy as np
 import os
+from utils.registry import registry  # Sử dụng registry để lấy config
 
 class ObjectFeatureExtractor:
     def __init__(self):
-        # Khởi tạo mô hình một lần
+        self.config = registry.get_module("config", name="base")  # Lấy config_base từ registry
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         try:
-            self.yolo = YOLO("yolov12m.pt").to(self.device)  # Tải YOLOv12-M
+            # Giữ nguyên cách tải YOLOv12m.pt
+            self.yolo = YOLO("yolov12m.pt").to(self.device)
             self.clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(self.device)
             self.clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
         except Exception as e:
@@ -18,19 +20,10 @@ class ObjectFeatureExtractor:
             raise
 
     def extract_features(self, image_path: str) -> list:
-        """
-        Trích xuất Object Features từ một ảnh.
-        
-        Args:
-            image_path (str): Đường dẫn đến ảnh (ví dụ: D:\\AIC2025\\save\\keyframes\\frame_0013.webp)
-        
-        Returns:
-            list: Danh sách các đối tượng với thông tin (class_label, box_coords, confidence, v_obj)
-        """
         try:
-            # Mở và chuẩn bị ảnh
             image = Image.open(image_path).convert("RGB")
-            results = self.yolo.predict(source=image, imgsz=640, conf=0.5)[0]  # Sử dụng predict thay vì gọi trực tiếp
+            yolo_config = registry.get_module("config", name="yolo")
+            results = self.yolo.predict(source=image, imgsz=yolo_config["imgsz"], conf=yolo_config["conf"])[0]
 
             embeddings = []
             for box in results.boxes:
@@ -48,11 +41,11 @@ class ObjectFeatureExtractor:
                     "v_obj": embedding
                 })
             
-            # (Tùy chọn) Lưu vector
             if embeddings:
-                base_name = os.path.basename(image_path).replace(".webp", "")
-                feature_dir = "D:\\AIC2025\\save\\features"
+                storage_config = registry.get_module("config", name="storage")
+                feature_dir = storage_config.get("features_dir", "AIC2025\\save\\features")
                 os.makedirs(feature_dir, exist_ok=True)
+                base_name = os.path.basename(image_path).replace(".webp", "")
                 for i, emb in enumerate(embeddings):
                     np.save(os.path.join(feature_dir, f"object_{base_name}_{emb['class_label']}_{i}.npy"), emb["v_obj"])
 
@@ -63,15 +56,17 @@ class ObjectFeatureExtractor:
             return []
 
     def __del__(self):
-        # Giải phóng bộ nhớ
         del self.yolo
         del self.clip_model
         if self.device == "cuda":
             torch.cuda.empty_cache()
 
-# Ví dụ sử dụng
 if __name__ == "__main__":
+    # Đảm bảo config đã được đăng ký trước khi chạy (thường trong main.py)
+    from utils.configs import Config
+    config = Config("D:\\AIC2025\\config\\config.yaml")
+    config.build_registry()  # Đăng ký config vào registry
     extractor = ObjectFeatureExtractor()
-    keyframe_path = "D:\\AIC2025\\save\\keyframes\\frame_0013.webp"
-    embeddings = extractor.extract_features(keyframe_path)
-    print(f"Extracted features for {keyframe_path}: {embeddings}")
+    keyframe_path = "AIC2025\\save\\keyframes\\frame_0013.webp"
+    features = extractor.extract_features(keyframe_path)
+    print(f"Extracted features for {keyframe_path}: {features}")
