@@ -2,11 +2,8 @@ class Registry:
     mapping = {
         "args": None,
         "config": {
-            "model_attributes": None,
-            "dataset_attributes": None,
-            "optimizer_attributes": None,
-            "training_parameters": None,
-            "common": None
+            "beit": None,
+            "captioner": None
         },
         "writer": {
             "common": None,

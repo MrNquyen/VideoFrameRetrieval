@@ -1,0 +1,12 @@
+trasform:
+  image_size: 224
+beit:
+  semantic:
+    model_path: "checkpoints/beit3_large_patch16_224_nlvr2.pth"
+    tokenizer_path: "checkpoints/beit3_semantic.spm"
+  retrieval:
+    model_path: "checkpoints/beit3_base_patch16_224_retrieval.pth"
+    tokenizer_path: "checkpoints/beit3_retrieval.spm"
+captioner:
+  model_path: OpenGVLab/InternVL2_5-1B
+  
