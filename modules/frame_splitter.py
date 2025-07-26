@@ -152,6 +152,14 @@ class FrameSelection:
             features["beit_features"].extend(batch_beit_features)
         features["num_frames"] = len(frames)
 
+        #~ Selection
+        list_keyframe_id = self.selection_lowlevel_features(features=features)
+        list_keyframe_id = self.selection_highlevel_features(
+            features=features,
+            prev_list_keyframe_id=list_keyframe_id
+        )
+        return frames[list_keyframe_id]
+
 
     def selection_lowlevel_features(
             self, 
