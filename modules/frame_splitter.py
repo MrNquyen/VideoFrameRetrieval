@@ -1,8 +1,11 @@
 import cv2
 import argparse
-import numpy as np
+import torch
 import os
+import numpy as np
+import torch.nn.functional as F
 
+from typing import List
 from tqdm import tqdm
 from utils.registry import registry
 from feature_extractor.histogram_extractor import HistogramExtractor
@@ -10,7 +13,7 @@ from models.beit import BEiTImangeEncoder
 from models.clip import CLIPImageEncoder, CLIPTextEncoder
 from models.marigold_depth import DepthEstimationExtractor
 from modules.image_captioning import ImageCaptioner
-
+from utils.utils import cosine_similarity
 
 class FrameSplitter:
     def __init__(self, interval: int):
@@ -102,8 +105,18 @@ class FrameSelection:
         self.text_encoder = CLIPTextEncoder()
         self.histogram_extractor = HistogramExtractor()
 
+
+    #-- Frame selection
     def frame_selection(self, source, batch_size):
         frames = self.frame_splitter.split_frames(source=source)
+        features = {
+            "color_histogram": [],
+            "depth_histogram": [],
+            "clip_text_features": [],
+            "clip_image_features": [],
+            "beit_features": [],
+            "num_frames": None
+        }
 
         for start_index in tqdm(range(0, len(frames), batch_size), desc="Get features embedding of video frames"):
             batch_frames = frames[start_index:start_index + batch_size]
@@ -130,4 +143,63 @@ class FrameSelection:
                 frames=batch_frames,
                 batch_size=batch_size
             )
+            
+            # Save to common
+            features["color_histogram"].extend(color_hist_feat)
+            features["depth_histogram"].extend(depth_hist_feat)
+            features["clip_text_features"].extend(batch_text_clip_features)
+            features["clip_image_features"].extend(batch_frame_clip_features)
+            features["beit_features"].extend(batch_beit_features)
+        features["num_frames"] = len(frames)
+
+
+    def selection_lowlevel_features(
+            self, 
+            features: dict, 
+            threshold: float=0.5
+        ):
+        last_keyframe_id = 0
+        list_keyframe_id = [last_keyframe_id]
+        color_histogram = torch.tensor(features["color_histogram"])
+        depth_histogram = torch.tensor(features["depth_histogram"])
+        lowlevel_features = torch.concat([
+            color_histogram,
+            depth_histogram
+        ], dim=-1)
+        for id in range(1, features["num_frames"]):
+            similarity = cosine_similarity(
+                input1=lowlevel_features[last_keyframe_id],
+                input2=lowlevel_features[id]
+            )
+            
+            if similarity <= threshold: # New keyframes
+                list_keyframe_id.append(id)
+                last_keyframe_id = id
+        return list_keyframe_id
+        
+
+    def selection_highlevel_features(
+            self, 
+            features: dict, 
+            prev_list_keyframe_id: List[int], 
+            threshold: float=0.5
+        ):
+        last_keyframe_id = prev_list_keyframe_id[0]
+        final_list_keyframe_id = [last_keyframe_id]
+        clip_image_features = torch.tensor(features["clip_image_features"])
+        beit_features = torch.tensor(features["beit_features"])
+        highlevel_features = torch.concat([
+            clip_image_features,
+            beit_features
+        ], dim=-1)
+        for id in prev_list_keyframe_id[1:]:
+            similarity = cosine_similarity(
+                input1=highlevel_features[last_keyframe_id],
+                input2=highlevel_features[id]
+            )
+            
+            if similarity <= threshold: # New keyframes
+                final_list_keyframe_id.append(id)
+                last_keyframe_id = id
+        return final_list_keyframe_id
             

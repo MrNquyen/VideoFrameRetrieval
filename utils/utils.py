@@ -3,6 +3,8 @@ import numpy as np
 import yaml
 import cv2
 import functools
+import torch
+import torch.nn.functional as F 
 
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
@@ -54,3 +56,9 @@ def load_list_images_fast(image_paths, num_workers=8, desc="Loading images"):
     with ThreadPoolExecutor(max_workers=num_workers) as executor:
         images = list(tqdm(executor.map(load_img_cache, image_paths), total=len(image_paths), desc=desc))
     return images
+
+#-- Cosine similarity
+def cosine_similarity(input1, input2):
+    scores = F.cosine_similarity(input1, input2, dim=0)
+    scores = (scores + 1) / 2
+    return scores
