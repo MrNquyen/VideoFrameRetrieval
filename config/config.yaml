@@ -11,4 +11,11 @@ beit:
     tokenizer_path: checkpoints/beit3_retrieval.spm
 captioner:
   model_path: OpenGVLab/InternVL2_5-1B
+yolo:
+  imgsz: 640  # Kích thước ảnh đầu vào cho YOLOv12
+  conf: 0.5   # Ngưỡng confidence
+
+storage:
+  features_dir: "save\\features"  # Thư mục lưu vector đặc trưng
+  
   
