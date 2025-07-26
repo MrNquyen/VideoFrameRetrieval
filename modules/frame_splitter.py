@@ -194,8 +194,8 @@ class FrameSelection:
         ):
         last_keyframe_id = prev_list_keyframe_id[0]
         final_list_keyframe_id = [last_keyframe_id]
-        clip_image_features = torch.tensor(features["clip_image_features"])
-        beit_features = torch.tensor(features["beit_features"])
+        clip_image_features = torch.stack(features["clip_image_features"])
+        beit_features = torch.stack(features["beit_features"])
         highlevel_features = torch.concat([
             clip_image_features,
             beit_features
