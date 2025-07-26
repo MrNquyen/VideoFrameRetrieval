@@ -9,10 +9,12 @@ class Config():
         self.config_beit = self.config_base["beit"]
         self.config_transform = self.config_base["transform"]
         self.config_captioner = self.config_base["captioner"]
+        self.config_frame_splitter = self.config_base["frame_splitter"]
         
     def build_registry(self):
         registry.set_module("config", name="base", instance=self.config_base)
         registry.set_module("config", name="beit", instance=self.config_beit)
         registry.set_module("config", name="captioner", instance=self.config_captioner)
         registry.set_module("config", name="transform", instance=self.config_transform)
+        registry.set_module("config", name="frame_splitter", instance=self.config_frame_splitter)
             

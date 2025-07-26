@@ -3,7 +3,14 @@ import argparse
 import numpy as np
 import os
 
+from tqdm import tqdm
 from utils.registry import registry
+from feature_extractor.histogram_extractor import HistogramExtractor
+from models.beit import BEiTImangeEncoder
+from models.clip import CLIPImageEncoder, CLIPTextEncoder
+from models.marigold_depth import DepthEstimationExtractor
+from modules.image_captioning import ImageCaptioner
+
 
 class FrameSplitter:
     def __init__(self, interval: int):
@@ -73,7 +80,7 @@ class FrameSplitter:
         self.writer.LOG_INFO(f"Splitting {saved_count} frames from video")
         cap.release()
 
-        frames = [for frame in frame if frame is not None]
+        frames = [frame for frame in frames if frame is not None]
         return frames
 
     def cap_frame(self, cap, frame_id):
@@ -84,3 +91,43 @@ class FrameSplitter:
     def save_frame(self, save_path, frame):
         cv2.imwrite(save_path, frame, [int(cv2.IMWRITE_WEBP_QUALITY), 80])
 
+
+class FrameSelection:
+    def __init__(self):
+        self.frame_splitter = FrameSplitter()
+        self.frame_captioner = ImageCaptioner()
+        self.frame_depth_extractor = DepthEstimationExtractor()
+        self.beit_encoder = BEiTImangeEncoder()
+        self.image_encoder = CLIPImageEncoder()
+        self.text_encoder = CLIPTextEncoder()
+        self.histogram_extractor = HistogramExtractor()
+
+    def frame_selection(self, source, batch_size):
+        frames = self.frame_splitter.split_frames(source=source)
+
+        for start_index in tqdm(range(0, len(frames), batch_size), desc="Get features embedding of video frames"):
+            batch_frames = frames[start_index:start_index + batch_size]
+            
+            #~ Low-level features
+            batch_depth_frames = self.frame_depth_extractor.convert_depth(
+                image_list=batch_frames,
+                batch_size=batch_size
+            )
+            color_hist_feat = [self.histogram_extractor.extract_hist(image=frame) for frame in batch_frames]
+            depth_hist_feat = [self.histogram_extractor.extract_hist(image=frame) for frame in batch_depth_frames]
+            
+            #~ High-level features
+            batch_captions = [self.frame_captioner.caption(frame) for frame in batch_captions]
+            batch_text_clip_features = self.text_encoder.encode_text(
+                text_list=batch_captions,
+                batch_size=batch_size
+            )
+            batch_frame_clip_features = self.image_encoder.encode_image(
+                image_list=batch_frames,
+                batch_size=batch_size
+            )
+            batch_beit_features = self.beit_encoder.encode_frames(
+                frames=batch_frames,
+                batch_size=batch_size
+            )
+            

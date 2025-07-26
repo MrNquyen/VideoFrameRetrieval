@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from utils.registry import registry
+from icecream import  ic
 from transformers import AutoTokenizer, AutoModel
 from torchvision.transforms.functional import InterpolationMode
 from torchvision import transforms
@@ -11,7 +12,9 @@ class ImageCaptioner:
     def __init__(self):
         self.config = registry.get_config("captioner")
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.transform = Transform()
+        self.transform = Transform(image_size=448)
+        #~ Load model
+        self.load_model()
 
     def convert_image_type(self, image):
         if type(image) == np.ndarray:
@@ -90,7 +93,6 @@ class ImageCaptioner:
         image = self.convert_image_type(image).convert("RGB")
         images = self.dynamic_preprocess(
             image=image, 
-            image_size=self.image_size, 
             use_thumbnail=True, 
             max_num=max_num
         )

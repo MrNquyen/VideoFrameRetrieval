@@ -1,3 +1,6 @@
+import torch
+from icecream import ic
+from tqdm import tqdm
 from utils.registry import registry
 from utils.configs import Config
 from utils.logger import Logger
@@ -9,7 +12,7 @@ class FiveBrosRetrieverBase:
     def __init__(self, args):
         #~ Configuration
         self.args = args
-        self.device = args.device
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
         #~ Build
         self.build()
 
@@ -37,16 +40,28 @@ class FiveBrosRetrieverBase:
 # ================================TEST MODULE HERE=====================
 #~ Example split video frames
 from modules.frame_splitter import FrameSplitter
-class FiveBrosSplitFrames(FiveBrosRetrieverBase):
+from modules.image_captioning import ImageCaptioner
+
+class FiveBrosSys(FiveBrosRetrieverBase):
     def __init__(self, args):
         super().__init__(args)
+        self.config = registry.get_config("frame_splitter")
+        self.add_modules()
 
     def add_modules(self):
         self.frame_splitter = FrameSplitter(interval=2)
+        self.frame_captioner = ImageCaptioner()
+
+    def caption_frames(self, frames):
+        for frame in tqdm(frames, desc="Captioning frames"):
+            output = self.frame_captioner.caption(frame)
+            ic(output)
 
     def split_frames(self, video_path):
         frames = self.frame_splitter.split_frames(
-            source=video_path
+            source=video_path,
+            save_dir=self.config["save_dir"],
+            is_saved=False
         )
         return frames
 
@@ -54,8 +69,10 @@ class FiveBrosSplitFrames(FiveBrosRetrieverBase):
 if __name__=="__main__":
     flag = Flags()
     args = flag.get_parser()
+    print(args)
 
     #~ Our splitter
     video_path = "data/video.mp4"
-    fbros_splitter = FiveBrosSplitFrames(args=args)
-    frames = fbros_splitter.split_frames(video_path=video_path)
+    fbros_sys = FiveBrosSys(args=args)
+    frames = fbros_sys.split_frames(video_path=video_path)
+    fbros_sys.caption_frames(frames[10:14])

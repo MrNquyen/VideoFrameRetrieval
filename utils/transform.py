@@ -3,15 +3,17 @@ import numpy as np
 import torch.nn.functional as F
 from torchvision import transforms
 from torchvision.transforms.functional import InterpolationMode
-from utils.transform import Transform
 from utils.registry import registry
 
 MEAN = (0.485, 0.456, 0.406)
 STD = (0.229, 0.224, 0.225)
 
 class Transform:
-    def __init__(self):
-        self.image_size = registry.get_config("transform")["image_size"]
+    def __init__(self, image_size=None):
+        self.image_size = registry.get_config("transform")["image_size"] \
+        if image_size==None \
+        else image_size 
+
 
     def transform_from_PIL(self):
         transform = transforms.Compose([
