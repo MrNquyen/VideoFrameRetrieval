@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import numpy as np
 from transformers import XLMRobertaTokenizer
 from torchvision import transforms
-from utils.beit.unilm.beit3.modeling_finetune import beit3_base_patch16_224_retrieval, beit3_large_patch16_224_nlvr2
+from utils.beit.unilm.beit3.modeling_finetune import beit3_base_patch16_224_retrieval, beit3_large_patch16_224_nlvr2, beit3_base_patch16_224_imageclassification
 from torchvision.transforms.functional import InterpolationMode
 from utils.utils import load_img_cache
 from utils.transform import Transform
@@ -29,9 +29,9 @@ class BEiTImangeEncoder:
         beit_model_path = beit_type_config["model_path"]
         beit_tokenizer_path = beit_type_config["tokenizer_path"]
         if self.feat_type=="retrieval":
-            self.model = beit3_large_patch16_224_nlvr2(pretrained=True)
-        elif self.feat_type=="semantic":
-            self.model = beit3_large_patch16_224_nlvr2(pretrained=True)
+            self.model = beit3_base_patch16_224_retrieval(pretrained=True)
+        elif self.feat_type=="classification":
+            self.model = beit3_base_patch16_224_imageclassification(pretrained=True)
         
         checkpoint = torch.load(beit_model_path, map_location=self.device)
         self.tokenizer = XLMRobertaTokenizer(beit_tokenizer_path)

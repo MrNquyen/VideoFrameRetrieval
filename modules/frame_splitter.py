@@ -5,6 +5,7 @@ import os
 import numpy as np
 import torch.nn.functional as F
 
+from icecream import ic
 from typing import List
 from tqdm import tqdm
 from utils.registry import registry
@@ -22,6 +23,7 @@ class FrameSplitter:
 
     def split_frames(
             self,
+            id: int,
             source  : str,
             save_dir: str = None, 
             is_saved: bool = False
@@ -62,7 +64,7 @@ class FrameSplitter:
             # print(f"Frame {frame_id} - Type: {type(frame)}")
             #~ Save frame
             if is_saved and frame is not None:
-                save_path = os.path.join(save_dir, f'frame_{saved_count:04d}.webp')
+                save_path = os.path.join(save_dir, f'keyframes/frame_{id}_{saved_count:04d}.webp')
                 self.save_frame(save_path, frame)
 
             #~ Yield each frame
@@ -72,7 +74,7 @@ class FrameSplitter:
                 if frame_id - num_skip_frames < total_frames:
                     ret, frame = self.cap_frame(cap, frame_id=total_frames - 1)
                     if is_saved and frame is not None:
-                        save_path = os.path.join(save_dir, f'frame_{saved_count:04d}.webp')
+                        save_path = os.path.join(save_dir, f'keyframes/frame_{id}_{saved_count:04d}.webp')
                         self.save_frame(save_path, frame)
                     saved_count += 1
                     if frame is not None: frames.append(frame)
@@ -96,8 +98,8 @@ class FrameSplitter:
 
 
 class FrameSelection:
-    def __init__(self):
-        self.frame_splitter = FrameSplitter()
+    def __init__(self, interval=2):
+        self.frame_splitter = FrameSplitter(interval=interval)
         self.frame_captioner = ImageCaptioner()
         self.frame_depth_extractor = DepthEstimationExtractor()
         self.beit_encoder = BEiTImangeEncoder()
@@ -107,8 +109,19 @@ class FrameSelection:
 
 
     #-- Frame selection
-    def frame_selection(self, source, batch_size):
-        frames = self.frame_splitter.split_frames(source=source)
+    def frame_selection(
+            self, 
+            source: str, 
+            batch_size: int, 
+            save_dir: str, 
+            is_saved_all: bool = True,
+            is_saved_selected: bool = True,
+        ):
+        frames = self.frame_splitter.split_frames(
+            source=source,
+            save_dir=save_dir,
+            is_saved=is_saved_all
+        )
         features = {
             "color_histogram": [],
             "depth_histogram": [],
@@ -154,11 +167,21 @@ class FrameSelection:
 
         #~ Selection
         list_keyframe_id = self.selection_lowlevel_features(features=features)
+        ic(f"First step: {list_keyframe_id}")
         list_keyframe_id = self.selection_highlevel_features(
             features=features,
             prev_list_keyframe_id=list_keyframe_id
         )
-        return frames[list_keyframe_id]
+        ic(f"Second step: {list_keyframe_id}")
+        selected_keyframes = frames[list_keyframe_id]
+        if is_saved_selected:
+            for kf_id, keyframe in enumerate(selected_keyframes):
+                save_path = os.path.join(save_dir, f'selected_keyframes/frame_{id}_{kf_id:04d}.webp')
+                self.save_frame(
+                    save_path=save_path,
+                    frame=keyframe
+                )
+        return selected_keyframes
 
 
     def selection_lowlevel_features(
@@ -210,4 +233,8 @@ class FrameSelection:
                 final_list_keyframe_id.append(id)
                 last_keyframe_id = id
         return final_list_keyframe_id
+    
+    def save_frame(self, save_path, frame):
+        cv2.imwrite(save_path, frame, [int(cv2.IMWRITE_WEBP_QUALITY), 80])
+
             
