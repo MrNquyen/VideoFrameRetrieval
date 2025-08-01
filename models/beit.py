@@ -5,34 +5,31 @@ import torch.nn.functional as F
 import numpy as np
 from transformers import XLMRobertaTokenizer
 from torchvision import transforms
-from utils.beit.unilm.beit3.modeling_finetune import beit3_base_patch16_224_retrieval, beit3_large_patch16_224_nlvr2, beit3_base_patch16_224_imageclassification
+from utils.beit.unilm.beit3.modeling_finetune import beit3_base_patch16_224_retrieval, beit3_large_patch16_224_nlvr2, beit3_large_patch16_224_imageclassification, beit3_large_patch16_384_retrieval
 from torchvision.transforms.functional import InterpolationMode
 from utils.utils import load_img_cache
 from utils.transform import Transform
 from tqdm import tqdm
+from icecream import ic
 
 class BEiTImangeEncoder:
     def __init__(self, feat_type):
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = registry.get_args("device")
         self.config = registry.get_config("beit")
         self.writer = registry.get_writer("common")
-        self.transform = Transform()
-        self.feat_type = feat_type
+        self.transform = Transform(image_size=384)
+        self.build_task()
 
     #-- BUILD
     def build_task(self):
-        beit_type_config = self.config.get(self.feat_type, None)
+        beit_type_config = self.config.get("retrieval", None)
         if beit_type_config==None:
-            self.writer.LOG_ERROR(f"Feature type {self.feat_type} unavailable")
+            self.writer.LOG_ERROR(f"Feature type retrieval unavailable")
             assert ValueError
 
         beit_model_path = beit_type_config["model_path"]
         beit_tokenizer_path = beit_type_config["tokenizer_path"]
-        if self.feat_type=="retrieval":
-            self.model = beit3_base_patch16_224_retrieval(pretrained=True)
-        elif self.feat_type=="classification":
-            self.model = beit3_base_patch16_224_imageclassification(pretrained=True)
-        
+        self.model = beit3_large_patch16_384_retrieval(pretrained=True)
         checkpoint = torch.load(beit_model_path, map_location=self.device)
         self.tokenizer = XLMRobertaTokenizer(beit_tokenizer_path)
         self.model.load_state_dict(checkpoint['model'])
@@ -62,8 +59,8 @@ class BEiTImangeEncoder:
         #     transforms.ToTensor(),
         # ])
         transform = self.transform.transform_from_ndarray()
-        if img.shape[0] > 3:
-            img = img.transpose(2, 0, 1)
+        if img.shape[2] > 3:
+            img = img.transpose(1, 2, 0)
         try:
             return transform(img).to(self.device)
         except Exception as e:
@@ -108,8 +105,8 @@ class BEiTImangeEncoder:
                 try:
                     image_features, _ = self.model(image=batch_images, only_infer=True)
                     image_features /= image_features.norm(dim=-1, keepdim=True)
-                    encoding_list.extend(image_features.cpu().numpy().astype(np.float32))
+                    encoding_list.extend(image_features.to(torch.float16))
+                    # encoding_list.extend(image_features.cpu().numpy().astype(np.float32))
                 except Exception as e:
                     print(f"Error during encoding batch {start_idx}-{start_idx + batch_size}: {e}")
-
         return encoding_list

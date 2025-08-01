@@ -11,7 +11,7 @@ from utils.transform import Transform
 class ImageCaptioner:
     def __init__(self):
         self.config = registry.get_config("captioner")
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = registry.get_args("device")
         self.transform = Transform(image_size=448)
         #~ Load model
         self.load_model()
@@ -26,9 +26,10 @@ class ImageCaptioner:
 
     def load_model(self):
         model_path = self.config["model_path"]
+        ic(model_path)
         self.model = AutoModel.from_pretrained(
             model_path,
-            torch_dtype=torch.bfloat16,
+            torch_dtype=torch.float16,
             low_cpu_mem_usage=True,
             use_flash_attn=True,
             trust_remote_code=True
@@ -102,8 +103,14 @@ class ImageCaptioner:
         return pixel_values
     
     def caption(self, image):
-        pixel_values = self.tokenize_image(image, max_num=12).to(torch.bfloat16).to(self.device)
+        pixel_values = self.tokenize_image(image, max_num=12).to(torch.float16).to(self.device)
         generation_config = dict(max_new_tokens=1024, do_sample=False)
         question = '<image>\nPlease describe the image shortly.'
         response = self.model.chat(self.tokenizer, pixel_values, question, generation_config)
         return response
+
+
+#===================IMAGE CAPTIONER GEMINI=================
+class ImageCaptionerGemini:
+    def __init__(self):
+        

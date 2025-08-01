@@ -12,7 +12,7 @@ class FiveBrosRetrieverBase:
     def __init__(self, args):
         #~ Configuration
         self.args = args
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = args.device
         #~ Build
         self.build()
 
@@ -40,7 +40,7 @@ class FiveBrosRetrieverBase:
 # ================================TEST MODULE HERE=====================
 #~ Example split video frames
 from modules.frame_splitter import FrameSelection
-from modules.object_detection import object_detection  # Thêm module mới
+# from modules.object_detection import object_detection  # Thêm module mới
 from modules.image_captioning import ImageCaptioner
 
 class FiveBrosSplitFrames(FiveBrosRetrieverBase):
@@ -60,8 +60,9 @@ class FiveBrosSplitFrames(FiveBrosRetrieverBase):
             captions.append(output)
         return captions
 
-    def split_frames(self, video_path):
+    def split_frames(self, id, video_path):
         frames = self.frame_selection.frame_selection(
+            id=id,
             source=video_path,
             save_dir=self.config["save_dir"],
             is_saved_all=True,
@@ -70,8 +71,6 @@ class FiveBrosSplitFrames(FiveBrosRetrieverBase):
         return frames
 
     
-
-
 if __name__=="__main__":
     flag = Flags()
     args = flag.get_parser()
@@ -80,4 +79,4 @@ if __name__=="__main__":
     #~ Our selection
     video_path = "data/video.mp4"
     fbros_selection = FiveBrosSplitFrames(args=args)
-    frames = fbros_selection.split_frames(video_path=video_path)
+    frames = fbros_selection.split_frames(id=0, video_path=video_path)

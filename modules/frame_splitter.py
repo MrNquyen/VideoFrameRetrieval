@@ -61,7 +61,6 @@ class FrameSplitter:
         # print(f"Start splitting - Total frames: {total_frames}")
         while(cap.isOpened()):
             ret, frame = self.cap_frame(cap, frame_id=frame_id)
-            # print(f"Frame {frame_id} - Type: {type(frame)}")
             #~ Save frame
             if is_saved and frame is not None:
                 save_path = os.path.join(save_dir, f'keyframes/frame_{id}_{saved_count:04d}.webp')
@@ -82,7 +81,7 @@ class FrameSplitter:
             frame_id += num_skip_frames
             saved_count += 1
 
-        self.writer.LOG_INFO(f"Splitting {saved_count} frames from video")
+        self.writer.LOG_INFO(f"Video: {id}: Splitting {saved_count} frames from video")
         cap.release()
 
         frames = [frame for frame in frames if frame is not None]
@@ -99,10 +98,13 @@ class FrameSplitter:
 
 class FrameSelection:
     def __init__(self, interval=2):
+        self.writer = registry.get_writer("common")
+        self.device = registry.get_args("device")
+        
         self.frame_splitter = FrameSplitter(interval=interval)
         self.frame_captioner = ImageCaptioner()
         self.frame_depth_extractor = DepthEstimationExtractor()
-        self.beit_encoder = BEiTImangeEncoder()
+        self.beit_encoder = BEiTImangeEncoder(feat_type="retrieval")
         self.image_encoder = CLIPImageEncoder()
         self.text_encoder = CLIPTextEncoder()
         self.histogram_extractor = HistogramExtractor()
@@ -110,18 +112,21 @@ class FrameSelection:
 
     #-- Frame selection
     def frame_selection(
-            self, 
+            self,
+            id: int,
             source: str, 
-            batch_size: int, 
             save_dir: str, 
+            batch_size: int = 4, 
             is_saved_all: bool = True,
             is_saved_selected: bool = True,
         ):
         frames = self.frame_splitter.split_frames(
+            id=id,
             source=source,
             save_dir=save_dir,
             is_saved=is_saved_all
         )
+        frames = np.array(frames)
         features = {
             "color_histogram": [],
             "depth_histogram": [],
@@ -139,11 +144,11 @@ class FrameSelection:
                 image_list=batch_frames,
                 batch_size=batch_size
             )
-            color_hist_feat = [self.histogram_extractor.extract_hist(image=frame) for frame in batch_frames]
-            depth_hist_feat = [self.histogram_extractor.extract_hist(image=frame) for frame in batch_depth_frames]
+            color_hist_feat = [self.histogram_extractor.extract_hist(image=frame) for frame in tqdm(batch_frames, desc="Extract color histogram")]
+            depth_hist_feat = [self.histogram_extractor.extract_hist(image=frame) for frame in tqdm(batch_depth_frames, desc="Extract depth histogram")]
             
             #~ High-level features
-            batch_captions = [self.frame_captioner.caption(frame) for frame in batch_captions]
+            batch_captions = [self.frame_captioner.caption(frame) for frame in batch_frames]
             batch_text_clip_features = self.text_encoder.encode_text(
                 text_list=batch_captions,
                 batch_size=batch_size
@@ -167,12 +172,12 @@ class FrameSelection:
 
         #~ Selection
         list_keyframe_id = self.selection_lowlevel_features(features=features)
-        ic(f"First step: {list_keyframe_id}")
+        self.writer.LOG_INFO(f"Video {id}: First step: {list_keyframe_id}")
         list_keyframe_id = self.selection_highlevel_features(
             features=features,
             prev_list_keyframe_id=list_keyframe_id
         )
-        ic(f"Second step: {list_keyframe_id}")
+        self.writer.LOG_INFO(f"Video {id}: Second step: {list_keyframe_id}")
         selected_keyframes = frames[list_keyframe_id]
         if is_saved_selected:
             for kf_id, keyframe in enumerate(selected_keyframes):
@@ -187,25 +192,26 @@ class FrameSelection:
     def selection_lowlevel_features(
             self, 
             features: dict, 
-            threshold: float=0.5
+            threshold: float=0.85
         ):
         last_keyframe_id = 0
         list_keyframe_id = [last_keyframe_id]
-        color_histogram = torch.tensor(features["color_histogram"])
-        depth_histogram = torch.tensor(features["depth_histogram"])
+        color_histogram = torch.stack(features["color_histogram"]).squeeze(-1)
+        depth_histogram = torch.stack(features["depth_histogram"]).squeeze(-1)
         lowlevel_features = torch.concat([
             color_histogram,
             depth_histogram
         ], dim=-1)
-        for id in range(1, features["num_frames"]):
+        for frame_id in tqdm(range(1, features["num_frames"]), desc="Low Level Features Selection"):
             similarity = cosine_similarity(
                 input1=lowlevel_features[last_keyframe_id],
-                input2=lowlevel_features[id]
+                input2=lowlevel_features[frame_id]
             )
+            ic(f"Low Similarity: {similarity} - Compare {last_keyframe_id}-{frame_id}")
             
             if similarity <= threshold: # New keyframes
-                list_keyframe_id.append(id)
-                last_keyframe_id = id
+                list_keyframe_id.append(frame_id)
+                last_keyframe_id = frame_id
         return list_keyframe_id
         
 
@@ -213,25 +219,28 @@ class FrameSelection:
             self, 
             features: dict, 
             prev_list_keyframe_id: List[int], 
-            threshold: float=0.5
+            threshold: float=0.85
         ):
         last_keyframe_id = prev_list_keyframe_id[0]
         final_list_keyframe_id = [last_keyframe_id]
-        clip_image_features = torch.stack(features["clip_image_features"])
-        beit_features = torch.stack(features["beit_features"])
+        # clip_image_features = torch.stack(features["clip_image_features"]).to(self.device)
+        clip_text_features = torch.stack(features["clip_text_features"]).to(self.device)
+        beit_features = torch.stack(features["beit_features"]).to(self.device)
         highlevel_features = torch.concat([
-            clip_image_features,
+            # clip_image_features,
+            clip_text_features,
             beit_features
         ], dim=-1)
-        for id in prev_list_keyframe_id[1:]:
+        for frame_id in tqdm(prev_list_keyframe_id[1:], desc="High Level Features Selection"):
             similarity = cosine_similarity(
                 input1=highlevel_features[last_keyframe_id],
-                input2=highlevel_features[id]
+                input2=highlevel_features[frame_id]
             )
+            ic(f"High Similarity: {similarity} - Compare {last_keyframe_id}-{frame_id}")
             
             if similarity <= threshold: # New keyframes
-                final_list_keyframe_id.append(id)
-                last_keyframe_id = id
+                final_list_keyframe_id.append(frame_id)
+                last_keyframe_id = frame_id
         return final_list_keyframe_id
     
     def save_frame(self, save_path, frame):

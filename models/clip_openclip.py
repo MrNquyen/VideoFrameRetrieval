@@ -5,24 +5,17 @@ from PIL import Image
 from tqdm import tqdm
 from typing import List
 from torchvision import transforms
-from transformers import AutoProcessor, AutoModel
-from utils.registry import registry
-from icecream import ic
 
 class CLIPEncoderBase:
-    def __init__(self):
-        self.config = registry.get_config("clip")
-        self.device = registry.get_args("device")
-        self.model_path = self.config["model_path"]
-        ic(self.model_path)
-        self.load_model()
-
-    def load_model(self):
+    def __init__(self, pretrained: str = 'laion400m_e32'):
+        self.model_name = 'ViT-L-14'
+        self.pretrained = pretrained
         try:
-            self.processor = AutoProcessor.from_pretrained(self.model_path, trust_remote_code=True)
-            self.model = AutoModel.from_pretrained(self.model_path, trust_remote_code=True)
+            self.model, _, self.preprocess = open_clip.create_model_and_transforms(
+                self.model_name, pretrained
+            )
         except Exception as e:
-            raise ValueError(f"Failed to load CLIP model: {e}")
+            raise ValueError(f"Failed to load model {self.model_name} with weights {pretrained}: {e}")
         
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.model.to(self.device)
@@ -38,8 +31,8 @@ class CLIPEncoderBase:
 
 
 class CLIPImageEncoder(CLIPEncoderBase):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, pretrained = 'laion400m_e32'):
+        super().__init__(pretrained)
 
     def encode_image(self, image_list: List[np.ndarray], batch_size: int):
         encoding_list = []
@@ -49,11 +42,11 @@ class CLIPImageEncoder(CLIPEncoderBase):
             for image in batch_images:
                 try:
                     img = self.convert_image_type(image)
-                    img = self.processor(images=[img], return_tensors="pt")["pixel_values"][0]  # Add batch dimension
+                    img = self.preprocess(img)  # Add batch dimension
                     processed_batch_images.append(img)
                 except Exception as e:
                     print(f"Failed to process image: {e}")
-
+            
             if not processed_batch_images:
                 print(f"No valid images to encode in batch starting at index {start_index}.")
                 continue
@@ -62,19 +55,18 @@ class CLIPImageEncoder(CLIPEncoderBase):
 
             # Perform encoding
             with torch.inference_mode():
-                image_features = self.model.get_image_features(image_tensor)
+                image_features = self.model.encode_image(image_tensor)
                 image_features /= image_features.norm(dim=-1, keepdim=True)
-                encoding_list.extend(image_features.to(torch.float16))
-                # encoding_list.extend(image_features.cpu().numpy().astype(np.float32))
+                encoding_list.extend(image_features.cpu().numpy().astype(np.float32))
 
         if not encoding_list:
             raise ValueError("No valid images were successfully encoded.")
-        return encoding_list # (num_images, 768)
+        return encoding_list # (768,)
     
 
 class CLIPTextEncoder(CLIPEncoderBase):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, pretrained = 'laion400m_e32'):
+        super().__init__(pretrained)
 
     def encode_text(self, text_list: List[str], batch_size: int):
         encoding_list = []
@@ -85,19 +77,10 @@ class CLIPTextEncoder(CLIPEncoderBase):
                 continue
 
             # Perform encoding
-            inputs = self.processor(text=batch_texts, return_tensors="pt", padding=True, truncation=True)
-            input_ids   = inputs["input_ids"].to(self.device)
-            attention_mask = inputs["attention_mask"].to(self.device)
-            
             with torch.inference_mode():
-                text_features = self.model.get_text_features(
-                    input_ids=input_ids,
-                    attention_mask=attention_mask
-                )
-                text_features = text_features / text_features.norm(p=2, dim=-1, keepdim=True)
-                encoding_list.extend(text_features.to(torch.float16))
-                # encoding_list.extend(text_features.cpu().numpy().astype(np.float16))
+                text_features = self.model.encode_documents(batch_texts)
+                encoding_list.extend(text_features.cpu().numpy().astype(np.float32))
 
         if not encoding_list:
             raise ValueError("No valid texts were successfully encoded.")
-        return encoding_list # (num_images, 768)
+        return encoding_list # (768,)
