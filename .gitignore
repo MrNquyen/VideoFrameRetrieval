@@ -1,3 +1,5 @@
 /checkpoints
 # /save/keyframes
 github.txt
+.env
+.gitignore
