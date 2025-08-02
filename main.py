@@ -69,8 +69,6 @@ class FiveBrosSplitFrames(FiveBrosRetrieverBase):
         )
         return frames
 
-    
-
 
 if __name__=="__main__":
     flag = Flags()
