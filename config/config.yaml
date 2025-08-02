@@ -1,16 +1,21 @@
 frame_splitter:
-  save_dir: save/keyframes
+  save_dir: save
 transform:
   image_size: 224
+depth_estimation:
+  model_path: /data2/npl/ViInfographicCaps/model/marigold-depth-v1-0
 beit:
-  semantic:
-    model_path: checkpoints/beit3_large_patch16_224_nlvr2.pth
-    tokenizer_path: checkpoints/beit3_semantic.spm
+  classification:
+    model_path: checkpoints/beit3_large_patch16_224_in1k.pth
+    tokenizer_path: checkpoints/beit3.spm
   retrieval:
-    model_path: checkpoints/beit3_base_patch16_224_retrieval.pth
-    tokenizer_path: checkpoints/beit3_retrieval.spm
+    model_path: checkpoints/beit3_large_patch16_384_f30k_retrieval.pth
+    tokenizer_path: checkpoints/beit3.spm
+clip:
+  model_path: /data2/npl/ViInfographicCaps/model/clip-vit-large-patch14
 captioner:
-  model_path: OpenGVLab/InternVL2_5-1B
+  # model_path: OpenGVLab/InternVL2_5-1B
+  model_path: /data2/npl/ViInfographicCaps/model/InternVL2_5-1B
 yolo:
   imgsz: 640  # Kích thước ảnh đầu vào cho YOLOv12
   conf: 0.5   # Ngưỡng confidence

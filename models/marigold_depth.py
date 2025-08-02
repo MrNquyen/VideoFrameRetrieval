@@ -6,11 +6,13 @@ from typing import List
 from tqdm import tqdm
 from torchvision import transforms
 from utils.transform import Transform
+from utils.registry import registry
 from PIL import Image
 
 class DepthEstimationExtractor:
-    def __init__(self, model_name: str = 'prs-eth/marigold-depth-v1-0'):
-        self.model_name = model_name
+    def __init__(self):
+        self.config = registry.get_config("depth_estimation")
+        self.model_path = self.config["model_path"]
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.load_model()
 
@@ -25,7 +27,7 @@ class DepthEstimationExtractor:
     def load_model(self):
         try: 
             self.model = diffusers.MarigoldDepthPipeline.from_pretrained(
-                self.model_name, 
+                self.model_path, 
                 variant="fp16", 
                 torch_dtype=torch.float16
             ).to(self.device)
@@ -40,7 +42,7 @@ class DepthEstimationExtractor:
             for image in batch_images:
                 try:
                     img = self.convert_image_type(image).convert("RGB")
-                    img = self.preprocess(img)  # Add batch dimension
+                    # img = self.preprocess(img)  # Add batch dimension
                     processed_batch_images.append(img)
                 except Exception as e:
                     print(f"Failed to process image: {e}")

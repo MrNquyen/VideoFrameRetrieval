@@ -9,7 +9,7 @@ from utils.registry import registry  # Sử dụng registry để lấy config
 class ObjectFeatureExtractor:
     def __init__(self):
         self.config = registry.get_module("config", name="base")  # Lấy config_base từ registry
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = registry.get_args("device")
         try:
             # Giữ nguyên cách tải YOLOv12m.pt
             self.yolo = YOLO("yolov12m.pt").to(self.device)
