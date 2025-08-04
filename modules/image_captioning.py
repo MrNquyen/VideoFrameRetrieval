@@ -111,14 +111,3 @@ class ImageCaptioner:
 
 
 #===================IMAGE CAPTIONER GEMINI=================
-from google import genai
-from google.genai import types
-from dotenv import load_dotenv
-load_dotenv()
-
-class ImageCaptionerGemini:
-    def __init__(self):
-        NotImplemented
-
-    def create_client(self):
-        self.client =genai.Client

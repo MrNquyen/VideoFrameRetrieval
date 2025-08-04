@@ -19,6 +19,14 @@ captioner:
 yolo:
   imgsz: 640  # Kích thước ảnh đầu vào cho YOLOv12
   conf: 0.5   # Ngưỡng confidence
+object_extractor:
+  dino:
+    model_name: IDEA-Research/grounding-dino-tiny
+    box_threshold: 0.3
+  detr:
+    model_name: PekingU/rtdetr_v2_r18vd
+    resolution: 896
+    threshold: 0.5
 storage:
   features_dir: "save\\features"  # Thư mục lưu vector đặc trưng
   

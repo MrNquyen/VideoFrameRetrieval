@@ -14,6 +14,7 @@ class Config():
         self.config_depth_estimation = self.config_base["depth_estimation"]
         self.config_yolo = self.config_base.get("yolo", {})
         self.config_storage = self.config_base.get("storage", {})
+        self.config_object_extractor = self.config_base.get("object_extractor", {})
         
     def build_registry(self):
         registry.set_module("config", name="base", instance=self.config_base)
@@ -23,6 +24,7 @@ class Config():
         registry.set_module("config", name="transform", instance=self.config_transform)
         registry.set_module("config", name="frame_splitter", instance=self.config_frame_splitter)
         registry.set_module("config", name="depth_estimation", instance=self.config_depth_estimation)
+        registry.set_module("config", name="object_extractor", instance=self.config_object_extractor)
             
         registry.set_module("config", name="yolo", instance=self.config_yolo)
         registry.set_module("config", name="storage", instance=self.config_storage)
