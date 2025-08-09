@@ -15,5 +15,8 @@ class Flags:
             "--config", type=str, default="config/config.yaml", required=False, help="config yaml file"
         )
         self.parser.add_argument(
+            "--video_data_save_dir", type=str, default="data", required=False, help="Data include videos"
+        )
+        self.parser.add_argument(
             "--device", type=str, default="cuda:0", required=False, help="Cuda device"
         )

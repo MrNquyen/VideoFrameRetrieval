@@ -53,6 +53,7 @@ class FrameSplitter:
 
         #-- Split frame
         frames = []
+        timestamps = []
         frame_id = 0
         saved_count = 0
         if cap.isOpened() == False:
@@ -61,6 +62,8 @@ class FrameSplitter:
         # print(f"Start splitting - Total frames: {total_frames}")
         while(cap.isOpened()):
             ret, frame = self.cap_frame(cap, frame_id=frame_id)
+            timestamp = frame_id / fps
+            timestamps.append(timestamp)
             #~ Save frame
             if is_saved and frame is not None:
                 save_path = os.path.join(save_dir, f'keyframes/frame_{id}_{saved_count:04d}.webp')
@@ -85,7 +88,7 @@ class FrameSplitter:
         cap.release()
 
         frames = [frame for frame in frames if frame is not None]
-        return frames
+        return frames. timestamps
 
     def cap_frame(self, cap, frame_id):
         cap.set(cv2.CAP_PROP_POS_FRAMES, frame_id)
@@ -120,13 +123,14 @@ class FrameSelection:
             is_saved_all: bool = True,
             is_saved_selected: bool = True,
         ):
-        frames = self.frame_splitter.split_frames(
+        frames, timestamps = self.frame_splitter.split_frames(
             id=id,
             source=source,
             save_dir=save_dir,
             is_saved=is_saved_all
         )
         frames = np.array(frames)
+        timestamps = np.array(timestamps)
         features = {
             "color_histogram": [],
             "depth_histogram": [],
@@ -173,12 +177,14 @@ class FrameSelection:
         #~ Selection
         list_keyframe_id = self.selection_lowlevel_features(features=features)
         self.writer.LOG_INFO(f"Video {id}: First step: {list_keyframe_id}")
-        list_keyframe_id = self.selection_highlevel_features(
+        list_keyframe_id, keyframe_features = self.selection_highlevel_features(
             features=features,
             prev_list_keyframe_id=list_keyframe_id
         )
         self.writer.LOG_INFO(f"Video {id}: Second step: {list_keyframe_id}")
         selected_keyframes = frames[list_keyframe_id]
+        selected_timestamps = timestamps[list_keyframe_id]
+        
         if is_saved_selected:
             for kf_id, keyframe in enumerate(selected_keyframes):
                 save_path = os.path.join(save_dir, f'selected_keyframes/frame_{id}_{kf_id:04d}.webp')
@@ -186,7 +192,8 @@ class FrameSelection:
                     save_path=save_path,
                     frame=keyframe
                 )
-        return selected_keyframes
+        # selected_keyframe_features = {k: np.array(v)[list_keyframe_id] for k, v in features.items()}
+        return list_keyframe_id, selected_keyframes, selected_timestamps, keyframe_features
 
 
     def selection_lowlevel_features(
@@ -241,7 +248,14 @@ class FrameSelection:
             if similarity <= threshold: # New keyframes
                 final_list_keyframe_id.append(frame_id)
                 last_keyframe_id = frame_id
-        return final_list_keyframe_id
+
+        # Keyframes highlevel features
+        keyframe_features = {
+            "clip_text_features": clip_text_features[final_list_keyframe_id],
+            "beit_features": beit_features[final_list_keyframe_id],
+        }
+
+        return final_list_keyframe_id, keyframe_features
     
     def save_frame(self, save_path, frame):
         cv2.imwrite(save_path, frame, [int(cv2.IMWRITE_WEBP_QUALITY), 80])

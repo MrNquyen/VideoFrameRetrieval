@@ -8,7 +8,7 @@ from utils.logger import Logger
 from utils.registry import registry
 from utils.flags import Flags
 from utils.utils import load_yml
-from modules.milvus import Milvus, milvus_config
+from modules.milvus import Milvus, milvus_config, insert_dummy_data
 from models.gemini import Gemini
 from utils.preprocess import lemmalizer, remove_stopwords, parse_element
 from models.dino import DinoDetector
@@ -95,63 +95,24 @@ class System(FiveBrosRetrieverBase):
         self.dino_detector = DinoDetector()
 
     #-- Frame Selection
-    def get_oca_in_caption(self, clause_elements):
-        """
-            Get objects / concepts / actions in each image caption
-
-            Return:
-            -------
-            List[objects], List[actions], List[adjectives]
-        """
-        objects = [element["objects"] for element in clause_elements]
-        actions = [element["actions"] for element in clause_elements]
-        adjectives = [element["adjectives"] for element in clause_elements]
-        
-        objects = list(set(item for sublist in objects for item in sublist))
-        actions = list(set(item for sublist in actions for item in sublist))
-        adjectives = list(set(item for sublist in adjectives for item in sublist))
-        return objects, actions, adjectives
-
-
     def frame_selection(self):
         for video_id, video_path in tqdm(enumerate(self.video_paths)):
-            keyframe_ids, keyframes, keyframe_features = self.frame_splitter.split_frames(id=video_id, video_path=video_path)
+            keyframe_ids, keyframes, keyframe_features, timestamps = self.frame_splitter.split_frames(id=video_id, video_path=video_path)
             
-            # Parse the captions for all keyframes
-            image_captions = self.gemini.captioning(keyframes)
-            paraphrased_image_captions = self.gemini.parapharasing(image_captions)
-            lemmalized_captions = [self.lemmalizer.lemmalize_sentence(paraphrase_caption) for paraphrase_caption in paraphrased_image_captions]
-            clean_captions = [remove_stopwords(caption) for caption in lemmalized_captions]
-            parse_captions = self.gemini.parsing(clean_captions)
-            list_clauses = [
-                text.split(".")
-                for text in parse_captions
-            ]
-
-            # List[List[dict]]
-            list_clause_elements = [
-                [parse_element(clause) for clause in clauses]
-                for clauses in list_clauses
-            ]
-
-            # Get oca in each caption
-            list_keyframe_objects = [] 
-            for clause_elements in list_clause_elements:
-                objects, actions, adjectives = self.get_oca_in_caption(
-                    clause_elements=clause_elements
-                )
-                result = self.dino_detector.zs_detect(
-                    images=keyframes,
-                    objects=objects
-                )
-                filter_objects = result["labels"]
-                list_keyframe_objects.append(filter_objects)
-
-            # Add to milvus
-            
-    def insert_to_milvus(self):
-
-
+            features_dict = {
+                keyframe_id: {
+                    "visual_feature": keyframe_features["beit_features"][idx],
+                    "text_feature": keyframe_features["clip_text_features"][idx],
+                    "objects": [],
+                    "concepts": [],
+                    "timestamp": timestamp,
+                }
+                for idx, keyframe_id, timestamp in enumerate(zip(keyframe_ids, timestamps))
+            }
+            insert_dummy_data(
+                milvus_instance=self.milvus_instance,
+                features_dict=features_dict
+            )
 
 if __name__=="__main__":
     flag = Flags()

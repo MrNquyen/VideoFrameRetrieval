@@ -10,7 +10,7 @@ class DinoDetector:
         self.config = registry.get_config("depth_estimation")["dino"]
         self.box_threshold = self.config["box_threshold"] 
         self.model_path = self.config["model_path"]
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.device = registry.get_args("device")
         self.load_model()
 
     def convert_image_type(self, image):
