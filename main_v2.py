@@ -66,14 +66,14 @@ class FiveBrosSplitFrames:
         return captions
 
     def split_frames(self, id, video_path):
-        frames = self.frame_selection.frame_selection(
+        list_keyframe_id, selected_keyframes, selected_timestamps, keyframe_features = self.frame_selection.frame_selection(
             id=id,
             source=video_path,
             save_dir=self.config["save_dir"],
             is_saved_all=True,
             is_saved_selected=True
         )
-        return frames
+        return list_keyframe_id, selected_keyframes, selected_timestamps, keyframe_features
 
 # ================================SYSTEMS=====================
 class System(FiveBrosRetrieverBase):
@@ -87,21 +87,22 @@ class System(FiveBrosRetrieverBase):
             for video_name in 
             os.listdir(self.args.video_data_save_dir)
         ]
+        self.build_modules()
         # self.milvus_instance = Milvus(milvus_config)
-        self.milvus_instance = MilvusLight(milvus_config)
+        # self.milvus_instance = MilvusLight(milvus_config)
         # self.milvus_instance = MilvusLightV2(milvus_config)
 
     def build_modules(self):
         self.frame_splitter = FiveBrosSplitFrames()
         self.gemini = Gemini()
         self.lemmalizer = lemmalizer
-        self.dino_detector = DinoDetector()
+        # self.dino_detector = DinoDetector()
 
     #-- Frame Selection
     def frame_selection(self):
         for video_id, video_path in tqdm(enumerate(self.video_paths)):
-            keyframe_ids, keyframes, keyframe_features, timestamps = self.frame_splitter.split_frames(id=video_id, video_path=video_path)
-            
+            keyframe_ids, keyframes, timestamps, keyframe_features = self.frame_splitter.split_frames(id=video_id, video_path=video_path)
+            ic(type(keyframe_features))
             features_dict = {
                 keyframe_id: {
                     "visual_feature": keyframe_features["beit_features"][idx],
@@ -110,12 +111,14 @@ class System(FiveBrosRetrieverBase):
                     "concepts": [],
                     "timestamp": timestamp,
                 }
-                for idx, keyframe_id, timestamp in enumerate(zip(keyframe_ids, timestamps))
+                for idx, (keyframe_id, timestamp) in enumerate(zip(keyframe_ids, timestamps))
             }
-            insert_dummy_data(
-                milvus_instance=self.milvus_instance,
-                features_dict=features_dict
-            )
+            # insert_dummy_data(
+            #     milvus_instance=self.milvus_instance,
+            #     features_dict=features_dict
+            # )
+            for k, item in features_dict.items():
+                ic(k, item["timestamp"])
 
 if __name__=="__main__":
     flag = Flags()

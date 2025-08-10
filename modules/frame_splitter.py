@@ -88,7 +88,7 @@ class FrameSplitter:
         cap.release()
 
         frames = [frame for frame in frames if frame is not None]
-        return frames. timestamps
+        return frames, timestamps
 
     def cap_frame(self, cap, frame_id):
         cap.set(cv2.CAP_PROP_POS_FRAMES, frame_id)

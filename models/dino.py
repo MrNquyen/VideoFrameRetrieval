@@ -7,7 +7,7 @@ from transformers import AutoProcessor, AutoModelForZeroShotObjectDetection
 
 class DinoDetector:
     def __init__(self):
-        self.config = registry.get_config("depth_estimation")["dino"]
+        self.config = registry.get_config("object_extractor")["dino"]
         self.box_threshold = self.config["box_threshold"] 
         self.model_path = self.config["model_path"]
         self.device = registry.get_args("device")
