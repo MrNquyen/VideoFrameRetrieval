@@ -4,3 +4,5 @@ github.txt
 .gitignore
 .env_save
 .env
+.nfs000000000a86f9370000e323
+milvus_demo.db

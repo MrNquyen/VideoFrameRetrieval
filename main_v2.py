@@ -8,7 +8,7 @@ from utils.logger import Logger
 from utils.registry import registry
 from utils.flags import Flags
 from utils.utils import load_yml
-from modules.milvus import Milvus, milvus_config, insert_dummy_data
+from modules.milvus import Milvus, milvus_config, insert_dummy_data, MilvusLight, MilvusLightV2
 from models.gemini import Gemini
 from utils.preprocess import lemmalizer, remove_stopwords, parse_element
 from models.dino import DinoDetector
@@ -51,6 +51,7 @@ class FiveBrosSplitFrames:
     def __init__(self):
         super().__init__()
         self.config = registry.get_config("frame_splitter")
+        self.device = registry.get_args("device")
         self.add_modules()
 
     def add_modules(self):
@@ -86,7 +87,9 @@ class System(FiveBrosRetrieverBase):
             for video_name in 
             os.listdir(self.args.video_data_save_dir)
         ]
-        self.milvus_instance = Milvus(milvus_config)
+        # self.milvus_instance = Milvus(milvus_config)
+        self.milvus_instance = MilvusLight(milvus_config)
+        # self.milvus_instance = MilvusLightV2(milvus_config)
 
     def build_modules(self):
         self.frame_splitter = FiveBrosSplitFrames()
@@ -117,10 +120,10 @@ class System(FiveBrosRetrieverBase):
 if __name__=="__main__":
     flag = Flags()
     args = flag.get_parser()
-    print(args)
-
 
     #~ Our selection
     video_path = "data/video.mp4"
-    fbros_selection = FiveBrosSplitFrames()
-    frames = fbros_selection.split_frames(id=0, video_path=video_path)
+    # fbros_selection = FiveBrosSplitFrames()
+    # frames = fbros_selection.split_frames(id=0, video_path=video_path)
+    system = System(args=args)
+    system.frame_selection()
