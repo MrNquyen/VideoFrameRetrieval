@@ -11,6 +11,7 @@ from utils.utils import load_img_cache
 from utils.transform import Transform
 from tqdm import tqdm
 from icecream import ic
+from PIL import Image
 
 class BEiTImangeEncoder:
     def __init__(self, feat_type):
@@ -21,6 +22,12 @@ class BEiTImangeEncoder:
         self.build_task()
 
     #-- BUILD
+    def convert_image_type(self, image):
+        # If input is a PIL image, convert to numpy
+        if isinstance(image, Image.Image):
+            image = np.array(image)
+        return image
+    
     def build_task(self):
         beit_type_config = self.config.get("retrieval", None)
         if beit_type_config==None:
@@ -68,7 +75,7 @@ class BEiTImangeEncoder:
             return None
         
     #-- Encode frame
-    def encode_frames(self, frames, batch_size=4):
+    def encode_frames_old(self, frames, batch_size=4):
         """
             Function:
             ---------
@@ -86,13 +93,16 @@ class BEiTImangeEncoder:
                 batch_tensors = []
 
                 # Preprocess images in the batch
-                for frame_id, frame in enumerate(frames):
+                for frame_id, frame in enumerate(batch_frames):
+                    frame = self.convert_image_type(frame)
                     try:
                         image_tensor = self.process_image(frame)
                         if image_tensor is not None:
                             batch_tensors.append(image_tensor)
                     except Exception as e:
                         print(f"Failed to process frame {start_idx + frame_id}: {e}")
+                        ic(e)
+                        raise
 
                 if not batch_tensors:
                     print(f"No valid images in batch {start_idx}-{start_idx + batch_size}. Skipping.")
@@ -109,4 +119,46 @@ class BEiTImangeEncoder:
                     # encoding_list.extend(image_features.cpu().numpy().astype(np.float32))
                 except Exception as e:
                     print(f"Error during encoding batch {start_idx}-{start_idx + batch_size}: {e}")
+        return encoding_list
+
+
+    def encode_frames(self, frames, batch_size=4):
+        """
+            Function:
+            ---------
+                Encode all frames in one single video shot
+
+            Params:
+            ------
+                frames: List[np.ndarray] - W, H, C
+                    - Frame from frame splitting modules
+        """
+        encoding_list = []
+        with torch.no_grad():
+            batch_tensors = []
+            # Preprocess images in the batch
+            for frame_id, frame in enumerate(frames):
+                frame = self.convert_image_type(frame)
+                try:
+                    image_tensor = self.process_image(frame)
+                    if image_tensor is not None:
+                        batch_tensors.append(image_tensor)
+                except Exception as e:
+                    ic(e)
+                    raise
+
+            if not batch_tensors:
+                print(f"No valid images in batch. Skipping.")
+
+            # Stack tensors and move to device
+            batch_images = torch.stack(batch_tensors).to(self.device)
+
+            # Encode images
+            try:
+                image_features, _ = self.model(image=batch_images, only_infer=True)
+                image_features /= image_features.norm(dim=-1, keepdim=True)
+                encoding_list.extend(image_features.to(torch.float16))
+                # encoding_list.extend(image_features.cpu().numpy().astype(np.float32))
+            except Exception as e:
+                print(f"Error during encoding batch: {e}")
         return encoding_list

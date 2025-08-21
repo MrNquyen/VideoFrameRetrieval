@@ -11,7 +11,7 @@ from utils.template import CAPTION_INSTRUCTION_TEMPLATE, CAPTION_QUESTION_TEMPLA
 load_dotenv()
 
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel("gemini-1.5-flash")
+model = genai.GenerativeModel("gemini-2.5-flash")
 
 class Gemini:
     def __init__(self):

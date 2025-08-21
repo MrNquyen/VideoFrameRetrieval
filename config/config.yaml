@@ -16,6 +16,7 @@ clip:
 captioner:
   # model_path: OpenGVLab/InternVL2_5-1B
   model_path: /data2/npl/ViInfographicCaps/model/InternVL2_5-1B
+  # model_path: /data2/npl/ViInfographicCaps/model/InternVL3-8B
 yolo:
   imgsz: 640  # Kích thước ảnh đầu vào cho YOLOv12
   conf: 0.5   # Ngưỡng confidence

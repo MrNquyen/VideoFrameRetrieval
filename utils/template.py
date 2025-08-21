@@ -78,3 +78,18 @@ CAPTION_OUTPUT_TEMPLATE = """
     ### Output Format:
         - Caption for each input image should be on a new line (use '\n' as the separator).
 """
+
+
+# ======================CAPTIONING INTERNVL===================
+CAPTION_PROMPT = """
+    Carefully analyze the image below and describe everything you can see in the image in as much detail as possible. 
+    Describe all visible objects and people and their actions, positions, and relationships.
+    Mention colors, location, and time of day of the scene in the images.
+
+    ### Captions return in the following format:
+        Image 1: <Caption 1>
+        ...
+        Image n: <Caption n>        
+"""
+
+

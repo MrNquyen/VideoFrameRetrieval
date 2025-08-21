@@ -102,7 +102,6 @@ class System(FiveBrosRetrieverBase):
     def frame_selection(self):
         for video_id, video_path in tqdm(enumerate(self.video_paths)):
             keyframe_ids, keyframes, timestamps, keyframe_features = self.frame_splitter.split_frames(id=video_id, video_path=video_path)
-            ic(type(keyframe_features))
             features_dict = {
                 keyframe_id: {
                     "visual_feature": keyframe_features["beit_features"][idx],

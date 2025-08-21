@@ -5,6 +5,9 @@ import cv2
 import functools
 import torch
 import torch.nn.functional as F 
+import glob
+import os
+from PIL import Image
 
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
@@ -57,8 +60,18 @@ def load_list_images_fast(image_paths, num_workers=8, desc="Loading images"):
         images = list(tqdm(executor.map(load_img_cache, image_paths), total=len(image_paths), desc=desc))
     return images
 
+
+def load_image(path):
+    return Image.open(path)
+
+
 #-- Cosine similarity
 def cosine_similarity(input1, input2):
     scores = F.cosine_similarity(input1, input2, dim=0)
     scores = (scores + 1) / 2
     return scores
+
+#-- Get all image path in folder
+def get_all_image_path(root):
+    all_frames = glob.glob(os.path.join(root, "**", "*.jpg"), recursive=True)
+    return all_frames
